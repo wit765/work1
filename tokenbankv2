@@ -1,0 +1,44 @@
+pragma solidity ^0.8.0;
+
+import "./TokenBank.sol";
+import "./BaseERC20.sol";
+
+interface ITokensRecipient {
+    function tokensReceived(
+        address sender,
+        address recipient,
+        uint256 amount,
+        bytes calldata data
+    ) external;
+}
+
+contract TokenBankV2 is TokenBank, ITokensRecipient {
+    // 新增事件：通过回调存款
+    event DepositWithCallback(address indexed user, uint256 amount, bytes data);
+
+    constructor(address tokenAddress) TokenBank(tokenAddress) {}
+
+    // 实现 tokensReceived 接口以支持回调存款
+    function tokensReceived(
+        address sender,
+        address recipient,
+        uint256 amount,
+        bytes calldata data
+    ) external override {
+        // 确保调用者是代币合约
+        require(msg.sender == address(_token), "Only token contract can call");
+        // 确保接收者是本合约
+        require(recipient == address(this), "Invalid recipient");
+
+        // 更新发送者余额
+        _balances[sender] += amount;
+        
+        emit DepositWithCallback(sender, amount, data);
+        emit Deposit(sender, amount);
+    }
+
+    // 新增方法：检查合约是否支持 ITokensRecipient 接口
+    function supportsTokenCallback() external pure returns (bool) {
+        return true;
+    }
+}
